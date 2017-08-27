@@ -1,16 +1,8 @@
 ---
-layout: default
-title: About Me
+layout: page
+title: About me 
 ---
 
-<div class="post">
-	<h1 class="pageTitle">About Me</h1>
-	<p class="intro">I'm currently a postgraduate student at BUPT. </p>
-	<p class="intro">My research interests are computer vision and machine learning and I'm especially interested in object detection, tracking and classification.</p>
-	<p>| Coding | CV | ML | Designing | Guitar |</p>
-	<h2>Projects</h2>
-	<ul>
-		<li><a href="http://www-nlpir.nist.gov/projects/tv2016/tv2016.html">TRECVID-SED16</a> participant, a member of BUPT-MCPRL group</li>
-    <li>Football players detection and tracking</li>
-	</ul>
-</div>
+I'm currently a student at Beijing University of Posts and Telecommunications.
+My research interests are Computer Vision, object detection and segmentation, multiple objects tracking.
+I'm also crazy about *FingerStyle* and a big fan of **GOGO Satoshi** and his mucis.

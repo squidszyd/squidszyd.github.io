@@ -1,26 +1,17 @@
-title: GOGO
-description: Code, Computer Vision, Machine Learning and more
-
-url: https://squidszyd.github.io/
-baseurl: ""
-paginate_path: "blog/page:num/"
-permalink: blog/:title/
+name: 西土城伍伍慧
+description: Computer Vision and Music make the world a better place
+meta_description: ""
 
 markdown: kramdown
-highlighter: rouge
+highlighter: pygments
+logo: false
+paginate: 15
+baseurl: /
+domain_name: ''
+google_analytics: ''
 gems: [jekyll-paginate]
-paginate: 5
+future: true
 
-navigation:
- - title: Home
-   url: /index.html
- - title: About
-   url: /about
- - title: Contact
-   url: /contact
-
-social:
-   github: squidszyd
-   twitter: 
-   facebook: zhu.yandong.1 
-   email: squidroidnxs@gmail.com
+# Details for the RSS feed generator
+url:            'blog url'
+author:         'Squids Zyd'
