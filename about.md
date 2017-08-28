@@ -1,8 +1,8 @@
 ---
 layout: page
-title: About me 
+title: About
+permalink: /about/
 ---
-
 I'm currently a student at Beijing University of Posts and Telecommunications.
-My research interests are Computer Vision, object detection and segmentation, multiple objects tracking.
-I'm also crazy about *FingerStyle* and a big fan of **GOGO Satoshi** and his mucis.
+My research interests are **Computer Vision**, **Machine Learning** and **Deep Learning**.
+I'm also keen on *Finger Style* and a huge fan of **GOGO Satoshi** and his music.
