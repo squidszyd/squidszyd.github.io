@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>    
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width initial-scale=1">
+
+  <title>ZSH & Oh-My-Zsh配置</title>
+  <meta name="description" content="Why ZSH？之前一直在使用BASH和Linux系统做交互。虽然BASH很强大，但是在某些情况下非常累眼且不方便，比如：">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://localhost:4000/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/zsh/2017/08/28/zsh.html">
+  <link rel="alternate" type="application/atom+xml" title="西土城伍伍慧" href="http://localhost:4000/feed.xml" />
+  <script src="/scripts/jquery-1.11.2.min.js"></script>
+  <script src="/scripts/pithy.js"></script>
+</head>
+
+
+  <body>
+    <header class="header">
+	<div class="header-container">
+		<div class="nav">
+			
+				<li>
+					<a href="/index.html">home</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/archive.html">archive</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/category.html">category</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/about.html">about</a>
+				</li>			
+			
+		</div>
+		<div class="description"> Compute Vision and Music Make the World a Better Place </div>		
+		<ul class="social-links">
+			<li>
+				<a href="https://github.com/jekyll" title="Github">
+					<img width="19px" height="19px" src="/images/github.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="/feed.xml" title="RSS">
+					<img width="19px" height="19px" src="/images/rss.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="https://twitter.com/jekyllrb" title="Twitter">
+					<img width="19px" height="19px" src="/images/twitter.png"/>
+				</a>
+			</li>
+		</ul>		
+	</div>
+</header>
+
+    <br>
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+  <br>
+  <header class="post-header">
+    <h1 class="post-title">ZSH & Oh-My-Zsh配置</h1>
+    <p class="post-meta">Aug 28, 2017</p>
+  </header>
+
+  <article class="post-content">
+    <h3 id="why-zsh">Why ZSH？</h3>
+<p>之前一直在使用BASH和Linux系统做交互。虽然BASH很强大，但是在某些情况下<strong>非常累眼且不方便</strong>，比如：</p>
+
+<ul>
+  <li>
+    <p>在写完C/C++代码后执行make时，由于码力低下，会有超级多编译错误（毕竟不是用宇宙第一IDE Visual Studio写程序，好多问题写的时候就能查出来），这些编译错误信息会像瀑布一样疯狂地在屏幕上滚动。在这样一堆错误信息中，要找到第一个出错的位置（实际上是运行make命令的那行）相当费眼，因为命令行提示符<code class="highlighter-rouge">xxx@xxx$ make</code>并没有高亮，眼神不好的我完全找不到。</p>
+  </li>
+  <li>
+    <p>在一个git库下进行开发的时候，每次都需要用<code class="highlighter-rouge">git status</code>来查看库的状态，很不方便</p>
+  </li>
+  <li>
+    <p>Terminal全屏coding的时候，想看时间，还得退出全屏看操作系统状态栏才行，这样切屏很影响效率</p>
+  </li>
+  <li>在使用BASH进行自动补全的时候，必须通过prefix来补全，有时候却希望可以在字符串的任意位置进行补全，比如有下面这样一个文件夹：
+    <div class="highlighter-rouge"><pre class="highlight"><code>    ABC ABC2 ABC3 ABC4 CBA CBA2
+</code></pre>
+    </div>
+    <p>如果要匹配ABC3，在BASH里面需要打<code class="highlighter-rouge">A</code>+<code class="highlighter-rouge">Tab</code>+<code class="highlighter-rouge">3</code>来补全，但实际上可以只打<code class="highlighter-rouge">3</code>就能补全<code class="highlighter-rouge">ABC3</code>，因为只有它的名字里才有字符<code class="highlighter-rouge">3</code></p>
+  </li>
+  <li>经常会遇到这种情况：希望按<code class="highlighter-rouge">UP</code>寻找来重复刚刚执行过的命令，然而想找的命令可能“比较久远”，需要按好久<code class="highlighter-rouge">UP</code>才能找着，比如：
+    <div class="highlighter-rouge"><pre class="highlight"><code>  hahaha  &lt;--- This is what I want to execute
+  heihei
+  ...     &lt;--- So many other commands here
+  hohoho
+  xxx@xxx&amp; ha&lt;tab&gt;  &lt;--- Just type ha and press tab
+</code></pre>
+    </div>
+    <p>我们可以只打出想要的那个命令的前缀，ZSH会通过字符串匹配自动地遍历所有以那个前缀开头的命令，省去了不断地按<code class="highlighter-rouge">UP</code>去寻找想要的命令的操作</p>
+  </li>
+</ul>
+
+<h3 id="安装zsh">安装ZSH</h3>
+<p>由于在公司服务器上没有权限sudo，所以选择从source code编译安装，首先从<a href="http://zsh.sourceforge.net/Arc/source.html">zsh官网</a>下载<code class="highlighter-rouge">zsh-X.X.X.tar.gz</code>,解压并进入对应目录：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>wget &lt;link to gzip&gt;
+tar -zxvf zsh-X.X.X.tar.gz
+cd zsh-X.X.X
+</code></pre>
+</div>
+
+<p>然后运行以下命令安装：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>./configure --prefix=$HOME
+make -j $(nproc)
+make install
+</code></pre>
+</div>
+
+<p>安装过程中可能会出现这个问题：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>configure: error: "No terminal handling library was found on your system. This is probably a library called curses or ncurses. You may need to install a package called 'curses-devel' or 'ncurses-devel' on your system"
+</code></pre>
+</div>
+
+<p>原因是这个curses-devel或ncurses-devel没有安装，所以还需要找到其中一个的source code编译安装一下：下载<a href="https://launchpad.net/ubuntu/+source/ncurses/">ncurses-devel</a>，解压并进入目录执行<code class="highlighter-rouge">./configure --prefix=$HOME; make -j $(nproc); make install</code>安装。安装完后要把对应的<code class="highlighter-rouge">include</code>, <code class="highlighter-rouge">lib</code>, <code class="highlighter-rouge">bin</code>所在的目录分别加入到环境变量:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>export CFLAGS=-I/path/to/include
+export CPPFLAGS=-I/path/to/include
+export LDFLAGS=-L/path/to/lib
+</code></pre>
+</div>
+
+<p>再执行刚刚的<code class="highlighter-rouge">configure</code>等命令就可以正常安装ZSH了</p>
+
+<h3 id="让zsh成为默认shell">让ZSH成为默认SHELL</h3>
+<p>需要在<code class="highlighter-rouge">~/.bashrc</code>后面加上一下几行：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>export SHELL=$HOME/bin/zsh
+exec $HOME/bin/zsh -l
+</code></pre>
+</div>
+
+<p><strong>注意</strong> 由于刚刚安装ZSH的时候用到了<code class="highlighter-rouge">path/to/lib</code>这个链接库路径，所以需要确保在<code class="highlighter-rouge">.bashrc</code>加上上面两句话之前，正确设置<code class="highlighter-rouge">LD_LIBRARY_PATH</code>这个环境变量，不然再次登入会报错，提示找不到ncurses之类的错误，这时候只能通过远程拷贝命令<code class="highlighter-rouge">scp</code>把一个没有加入上面两行的bashrc拷贝到服务器的HOME下。设置完毕再次登入时会提示没有<code class="highlighter-rouge">.zshrc</code>这个配置文件，输入<code class="highlighter-rouge">0</code>，ZSH会自动帮你建立一个空的<code class="highlighter-rouge">.zshrc</code>并进入到ZSH中</p>
+
+<h3 id="安装oh-my-zsh">安装Oh-My-Zsh</h3>
+<p>直接按照Oh-My-Zsh的README中的步骤安装可能会遇到以下错误：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Zsh is not installed! Please install zsh first!
+</code></pre>
+</div>
+
+<p>这是由于我们安装的ZSH是在自己的HOME目录下，所以不会出现在<code class="highlighter-rouge">/etc/shells</code>里面，而安装Oh-My-Zsh所执行的命令会在最后调用<code class="highlighter-rouge">chsh</code>命令，这个命令最后会在<code class="highlighter-rouge">/etc/shells</code>里面寻找可用的SHELL，所以肯定会失败，解决办法如下（参考了<a href="https://superuser.com/questions/1114732/how-do-i-install-oh-my-zsh-with-a-custom-zsh-install/1114839">stack-over-flow</a>的高票答案）：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>git clone --depth=1 https://github.com/robbyrussell/oh-my-zsh.git $HOME/.oh-my-zsh
+cp $HOME/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc
+</code></pre>
+</div>
+
+<h3 id="配置">配置</h3>
+<ol>
+  <li><strong>主题</strong>: 在<code class="highlighter-rouge">.zshrc</code>里面设置<code class="highlighter-rouge">ZSH_THEME="obraun"</code>，大量主题可以参考<a href="https://github.com/robbyrussell/oh-my-zsh/wiki/themes">主题截图</a></li>
+</ol>
+
+  </article>
+<!-- 多说评论框 start -->
+	<div class="ds-thread" data-thread-key=/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/zsh/2017/08/28/zsh data-title=ZSH & Oh-My-Zsh配置 data-url=Compute Vision and Music Make the World a Better Place//%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/zsh/2017/08/28/zsh.html></div>
+<!-- 多说评论框 end -->
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+var duoshuoQuery = {short_name:"pawpaw"};
+	(function() {
+		var ds = document.createElement('script');
+		ds.type = 'text/javascript';ds.async = true;
+		ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+		ds.charset = 'UTF-8';
+		(document.getElementsByTagName('head')[0] 
+		 || document.getElementsByTagName('body')[0]).appendChild(ds);
+	})();
+	</script>
+<!-- 多说公共JS代码 end -->
+</div>
+
+      </div>
+    </div>
+    
+    <footer class="footer">
+  <div id="gotop">^</div>
+  <br>
+	@2015 Pithy Theme by Pawpaw.
+</footer>
+
+    
+  </body>
+
+</html>
