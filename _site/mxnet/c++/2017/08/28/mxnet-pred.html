@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>    
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width initial-scale=1">
+
+  <title>MXNet Prediction C++ 接口使用</title>
+  <meta name="description" content="需求最近在用C++实现一个CV算法框架。实现的时候对不同的特征提取方式做了抽象：基本的图像特征抽取类、光流特征抽取类、或者CNN深度特征抽取类。其中，CNN的参数是通过MXNet的Python接口训练的，希望实现一个C++版本的CNN特征抽取，于是就需要用到MXNet的C++接口。具体来说，就是如何用C++代码实...">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://localhost:4000/mxnet/c++/2017/08/28/mxnet-pred.html">
+  <link rel="alternate" type="application/atom+xml" title="西土城伍伍慧" href="http://localhost:4000/feed.xml" />
+  <script src="/scripts/jquery-1.11.2.min.js"></script>
+  <script src="/scripts/pithy.js"></script>
+</head>
+
+
+  <body>
+    <header class="header">
+	<div class="header-container">
+		<div class="nav">
+			
+				<li>
+					<a href="/index.html">home</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/archive.html">archive</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/category.html">category</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/about.html">about</a>
+				</li>			
+			
+		</div>
+		<div class="description"> Compute Vision and Music Make the World a Better Place </div>		
+		<ul class="social-links">
+			<li>
+				<a href="https://github.com/jekyll" title="Github">
+					<img width="19px" height="19px" src="/images/github.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="/feed.xml" title="RSS">
+					<img width="19px" height="19px" src="/images/rss.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="https://twitter.com/jekyllrb" title="Twitter">
+					<img width="19px" height="19px" src="/images/twitter.png"/>
+				</a>
+			</li>
+		</ul>		
+	</div>
+</header>
+
+    <br>
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+  <br>
+  <header class="post-header">
+    <h1 class="post-title">MXNet Prediction C++ 接口使用</h1>
+    <p class="post-meta">Aug 28, 2017</p>
+  </header>
+
+  <article class="post-content">
+    <h2 id="需求">需求</h2>
+<p>最近在用C++实现一个CV算法框架。实现的时候对不同的特征提取方式做了抽象：基本的图像特征抽取类、
+光流特征抽取类、或者CNN深度特征抽取类。其中，CNN的参数是通过MXNet的Python接口训练的，希望实现
+一个C++版本的CNN特征抽取，于是就需要用到MXNet的C++接口。具体来说，就是如何用C++代码实现用OpenCV
+读取图片，把图片feed进网络然后取出网络的inference结果的过程。全程参考自官方的<a href="https://github.com/apache/incubator-mxnet/tree/master/example/image-classification/predict-cpp">example</a>。</p>
+
+<h2 id="调用c接口">调用C++接口</h2>
+<h4 id="bufferfile类">BufferFile类</h4>
+<p>用于读取训练完的参数<code class="highlighter-rouge">*.params</code>和符号<code class="highlighter-rouge">*.json</code></p>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">BufferFile</span> <span class="p">{</span>
+ <span class="k">public</span> <span class="o">:</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">file_path_</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">length_</span><span class="p">;</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">buffer_</span><span class="p">;</span>
+
+    <span class="k">explicit</span> <span class="nf">BufferFile</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">file_path</span><span class="p">)</span>
+    <span class="o">:</span><span class="n">file_path_</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">std</span><span class="o">::</span><span class="n">ifstream</span> <span class="n">ifs</span><span class="p">(</span><span class="n">file_path</span><span class="p">.</span><span class="n">c_str</span><span class="p">(),</span> <span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">in</span> <span class="o">|</span> <span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">binary</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ifs</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">"Can't open the file. Please check "</span> <span class="o">&lt;&lt;</span> <span class="n">file_path</span> <span class="o">&lt;&lt;</span> <span class="s">". </span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+            <span class="n">length_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+            <span class="n">buffer_</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="n">ifs</span><span class="p">.</span><span class="n">seekg</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">end</span><span class="p">);</span>
+        <span class="n">length_</span> <span class="o">=</span> <span class="n">ifs</span><span class="p">.</span><span class="n">tellg</span><span class="p">();</span>
+        <span class="n">ifs</span><span class="p">.</span><span class="n">seekg</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">beg</span><span class="p">);</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">file_path</span><span class="p">.</span><span class="n">c_str</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">" ... "</span><span class="o">&lt;&lt;</span> <span class="n">length_</span> <span class="o">&lt;&lt;</span> <span class="s">" bytes</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+
+        <span class="n">buffer_</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">char</span><span class="p">[</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">char</span><span class="p">)</span> <span class="o">*</span> <span class="n">length_</span><span class="p">];</span>
+        <span class="n">ifs</span><span class="p">.</span><span class="n">read</span><span class="p">(</span><span class="n">buffer_</span><span class="p">,</span> <span class="n">length_</span><span class="p">);</span>
+        <span class="n">ifs</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="kt">int</span> <span class="nf">GetLength</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">length_</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="nf">GetBuffer</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">buffer_</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="o">~</span><span class="n">BufferFile</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">buffer_</span><span class="p">)</span> <span class="p">{</span>
+          <span class="k">delete</span><span class="p">[]</span> <span class="n">buffer_</span><span class="p">;</span>
+          <span class="n">buffer_</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">};</span></code></pre></figure>
+
+<p>这个类很简单，作用就是无视文件格式，把文件读入内置的<code class="highlighter-rouge">buffer_</code>成员变量中，通过<code class="highlighter-rouge">GetLength()</code>和
+<code class="highlighter-rouge">GetBuffer()</code>方法可以获取读入的数据的长度和内容。</p>
+
+<h3 id="pred-handle">Pred Handle:</h3>
+<p>这个是与MXNet交互的界面，通过这个handle我们可以设置要输入到网络的数据，可以
+获取相应的输出。</p>
+<h4 id="pred-handle的初始化最核心的就是下面这个api">Pred Handle的初始化，最核心的就是下面这个API：</h4>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">MXPredCreate</span><span class="p">(</span>
+     <span class="k">static_cast</span><span class="o">&lt;</span><span class="k">const</span> <span class="kt">char</span><span class="o">*&gt;</span><span class="n">json_data</span><span class="p">.</span><span class="n">GetBuffer</span><span class="p">(),</span>
+     <span class="k">static_cast</span><span class="o">&lt;</span><span class="k">const</span> <span class="kt">char</span><span class="o">*&gt;</span><span class="n">param_data</span><span class="p">.</span><span class="n">GetBuffer</span><span class="p">(),</span>
+     <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">param_data</span><span class="p">.</span><span class="n">GetLength</span><span class="p">()),</span>
+     <span class="n">DEV</span><span class="p">,</span>
+     <span class="n">DEV_ID</span><span class="p">,</span>
+     <span class="n">num_input_node</span><span class="p">,</span>
+     <span class="n">input_keys</span><span class="p">,</span>
+     <span class="n">input_shape_indptr</span><span class="p">,</span>
+     <span class="n">input_shape_data</span><span class="p">,</span>
+     <span class="o">&amp;</span><span class="n">pred_hnd_</span><span class="p">);</span></code></pre></figure>
+
+<p>对这里的变量做一下说明：</p>
+
+<ul>
+  <li><code class="highlighter-rouge">json_data</code>就是用模型的json文件初始化的<code class="highlighter-rouge">BufferFile</code>对象：</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">json_data</span> <span class="o">=</span> <span class="n">BufferFile</span><span class="p">(</span><span class="s">"/path/to/net-symbol.json"</span><span class="p">);</span></code></pre></figure>
+
+<ul>
+  <li><code class="highlighter-rouge">param_data</code>：同上，只不过是用模型参数文件初始化的：</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">param_data</span> <span class="o">=</span> <span class="n">BufferFile</span><span class="p">(</span><span class="s">"/path/to/net-0000.param"</span><span class="p">);</span></code></pre></figure>
+
+<ul>
+  <li><code class="highlighter-rouge">DEV</code>与<code class="highlighter-rouge">DEV_ID</code>：DEV等于2表示GPU，等于1表示CPU；DEV_ID表示用哪一个DEV（0~4）</li>
+  <li><code class="highlighter-rouge">num_input_node</code>：表示网络的输入个数，对于一个简单的分类网络，就是1，表示只有一个图像图像输入，
+  如果是像R-CNN这样的网络，还会有第二个输入是ROIPooling层所需的ROI，这样就需要把node数量设置成2。
+  总之，<code class="highlighter-rouge">num_input_node</code>和具体的网络有关</li>
+  <li><code class="highlighter-rouge">input_keys</code>：一个指向字符串指针数组的指针，数组的每个元素都是一个字符串，对应网络的输入节点的名字，比如一个网络有
+  两个输入节点：<code class="highlighter-rouge">input1, input2 = mx.sym.Variable('data1'), mx.sym.Variable('data2')</code>，相应的<code class="highlighter-rouge">input_keys</code>如下：</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">input_key</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s">"data1"</span><span class="p">,</span> <span class="s">"data2"</span><span class="p">};</span>
+<span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">input_keys</span> <span class="o">=</span> <span class="n">input_key</span><span class="p">;</span></code></pre></figure>
+
+<ul>
+  <li><code class="highlighter-rouge">input_shape_data</code>：是表示输入数据大小的元素为<code class="highlighter-rouge">mx_uint</code>类型的数组，举个例子，上面的<code class="highlighter-rouge">data1</code>和<code class="highlighter-rouge">data2</code>都是10x3x224x224的图像，
+  即一个batch有10张3通道的224*224大小的图像，那么<code class="highlighter-rouge">input_shape_data</code>应该如下：</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++">    <span class="k">const</span> <span class="n">mx_uint</span> <span class="n">input_shape_data</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span>    <span class="c1">// data1的大小
+</span>        <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span>     <span class="c1">// data2的大小
+</span>    <span class="p">};</span></code></pre></figure>
+
+<ul>
+  <li><code class="highlighter-rouge">input_shape_indptr</code>：表示<code class="highlighter-rouge">input_shape_data</code>各个维度和输入的对应关系，它也是一个<code class="highlighter-rouge">mx_uint</code>类型的数组，
+  数组的大小是网络输入节点个数加一。<code class="highlighter-rouge">input_shape_indptr[i+1] - input_shape_indptr[i]</code>表示第i个输入
+  在<code class="highlighter-rouge">input_shape_data</code>里面对应的尺寸数据的长度，<code class="highlighter-rouge">input_shape_indptr[i]</code>是第i个输入的尺寸数据在
+  <code class="highlighter-rouge">input_shape_data</code>中开始的位置。比如：</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++">    <span class="k">const</span> <span class="n">mx_uint</span> <span class="n">input_shape_indptr</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// data1的尺寸信息从input_shape_data的第0个位置开始, 到4结束: 10, 3, 224, 224
+</span>        <span class="mi">4</span><span class="p">,</span>  <span class="c1">// data2的尺寸信息从inptu_shape_data的第4个位置开始, 到8结束: 10, 3, 224, 224
+</span>        <span class="mi">8</span><span class="p">};</span></code></pre></figure>
+
+<ul>
+  <li><code class="highlighter-rouge">pred_hnd_</code>：MXNet预测handle，类型为<code class="highlighter-rouge">PredictorHandle</code></li>
+</ul>
+
+<h4 id="把图像放进网络">把图像放进网络</h4>
+<h4 id="获取输出">获取输出</h4>
+<h4 id="编译链接">编译链接</h4>
+
+  </article>
+<!-- 多说评论框 start -->
+	<div class="ds-thread" data-thread-key=/mxnet/c++/2017/08/28/mxnet-pred data-title=MXNet Prediction C++ 接口使用 data-url=Compute Vision and Music Make the World a Better Place//mxnet/c++/2017/08/28/mxnet-pred.html></div>
+<!-- 多说评论框 end -->
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+var duoshuoQuery = {short_name:"pawpaw"};
+	(function() {
+		var ds = document.createElement('script');
+		ds.type = 'text/javascript';ds.async = true;
+		ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+		ds.charset = 'UTF-8';
+		(document.getElementsByTagName('head')[0] 
+		 || document.getElementsByTagName('body')[0]).appendChild(ds);
+	})();
+	</script>
+<!-- 多说公共JS代码 end -->
+</div>
+
+      </div>
+    </div>
+    
+    <footer class="footer">
+  <div id="gotop">^</div>
+  <br>
+	@2015 Pithy Theme by Pawpaw.
+</footer>
+
+    
+  </body>
+
+</html>
