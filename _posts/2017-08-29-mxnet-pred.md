@@ -1,7 +1,7 @@
 ---
 layout: post
 title: MXNet Prediction C++ 接口使用
-date: 2017-08-28 22:10:00.000000000 +09:00
+date: 2017-08-28 22:10:00.000000000 +00:00
 categories: MXNet C++
 ---
 
