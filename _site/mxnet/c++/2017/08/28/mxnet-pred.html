@@ -129,8 +129,8 @@
 <code class="highlighter-rouge">GetBuffer()</code>方法可以获取读入的数据的长度和内容。</p>
 
 <h3 id="pred-handle">Pred Handle:</h3>
-<p>这个是与MXNet交互的界面，通过这个handle我们可以设置要输入到网络的数据，可以
-获取相应的输出。</p>
+<p>这个是与MXNet交互的界面，通过这个handle我们可以设置要输入到网络的数据，可以获取相应的输出。</p>
+
 <h4 id="pred-handle的初始化最核心的就是下面这个api">Pred Handle的初始化，最核心的就是下面这个API：</h4>
 
 <figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">MXPredCreate</span><span class="p">(</span>
@@ -143,7 +143,7 @@
      <span class="n">input_keys</span><span class="p">,</span>
      <span class="n">input_shape_indptr</span><span class="p">,</span>
      <span class="n">input_shape_data</span><span class="p">,</span>
-     <span class="o">&amp;</span><span class="n">pred_hnd_</span><span class="p">);</span></code></pre></figure>
+     <span class="o">&amp;</span><span class="n">pred_hnd</span><span class="p">);</span></code></pre></figure>
 
 <p>对这里的变量做一下说明：</p>
 
@@ -194,12 +194,81 @@
 </span>        <span class="mi">8</span><span class="p">};</span></code></pre></figure>
 
 <ul>
-  <li><code class="highlighter-rouge">pred_hnd_</code>：MXNet预测handle，类型为<code class="highlighter-rouge">PredictorHandle</code></li>
+  <li><code class="highlighter-rouge">pred_hnd</code>：MXNet预测handle，类型为<code class="highlighter-rouge">PredictorHandle</code></li>
 </ul>
 
 <h4 id="把图像放进网络">把图像放进网络</h4>
+<p>假设我们的模型接收1 x 3 x 224 x 224的图像作为输入，假设现有一个待输入的<code class="highlighter-rouge">Mat</code>类型图像，如何把
+它放进网络里呢？MXNet接收的输入实际上一块连续的内存，大小由<code class="highlighter-rouge">input_shape_data</code>指定，所以我们就需要
+把<code class="highlighter-rouge">Mat</code>转换成内存中的一块区域，实际的存储顺序如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>|--------B--------|--------G--------|--------R--------|
+|&lt;---- W x H ----&gt;|&lt;---- W x H ----&gt;|&lt;---- W x H ----&gt;|
+</code></pre>
+</div>
+<p>即按通道顺序存储，每个通道内按照列优先的顺序存，于是可以实现一个如下所示的转换函数：</p>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="c1">// 假设内存空间已经预先分配到pData所指向的内存
+</span><span class="kt">void</span> <span class="n">cvtMat2MXData</span><span class="p">(</span><span class="k">const</span> <span class="n">Mat</span><span class="o">&amp;</span> <span class="n">img</span><span class="p">,</span> <span class="kt">float</span><span class="o">*</span> <span class="n">pData</span><span class="p">,</span> <span class="kt">float</span> <span class="n">mean_r</span> <span class="o">=</span> <span class="mf">0.0</span><span class="n">f</span><span class="p">,</span> <span class="kt">float</span> <span class="n">mean_g</span> <span class="o">=</span> <span class="mf">0.0</span><span class="n">f</span><span class="p">,</span> <span class="kt">float</span> <span class="n">mean_b</span> <span class="o">=</span> <span class="mf">0.0</span><span class="n">f</span><span class="p">){</span>
+    <span class="kt">int</span> <span class="n">w</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="n">cols</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="n">rows</span><span class="p">;</span>
+    <span class="c1">// 检查是否符合网络的输入要求
+</span>    <span class="n">CHECK_EQ</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">INPUT_IMG_WIDTH</span><span class="p">);</span>
+    <span class="n">CHECK_EQ</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">INPUT_IMG_HEIGHT</span><span class="p">);</span>
+    <span class="kt">int</span> <span class="n">size</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">h</span><span class="p">;</span>
+    <span class="kt">float</span><span class="o">*</span> <span class="n">ptr_im_b</span> <span class="o">=</span> <span class="n">pData</span><span class="p">,</span> <span class="o">*</span><span class="n">ptr_im_g</span> <span class="o">=</span> <span class="n">pData</span> <span class="o">+</span> <span class="n">size</span><span class="p">;,</span> <span class="o">*</span><span class="n">ptr_im_r</span> <span class="o">=</span> <span class="n">pData</span> <span class="o">+</span> <span class="n">size</span> <span class="o">+</span> <span class="n">size</span><span class="p">;</span>
+    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">h</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">){</span>
+        <span class="k">auto</span> <span class="n">ptr</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="n">ptr</span><span class="o">&lt;</span><span class="n">uchar</span><span class="o">&gt;</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+        <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">w</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">){</span>
+            <span class="c1">// 顺便进行减均值的操作
+</span>            <span class="o">*</span><span class="n">ptr_im_b</span><span class="o">++</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">ptr</span><span class="o">++</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean_b</span><span class="p">;</span>
+            <span class="o">*</span><span class="n">ptr_im_g</span><span class="o">++</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">ptr</span><span class="o">++</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean_g</span><span class="p">;</span>
+            <span class="o">*</span><span class="n">ptr_im_r</span><span class="o">++</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">ptr</span><span class="o">++</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean_r</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>经过上面的变换，通过下面这个API就可以把图像送进网络：</p>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">MXPredSetInput</span><span class="p">(</span><span class="n">pred_hnd</span><span class="p">,</span> <span class="s">"data"</span><span class="p">,</span> <span class="n">pData</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">INPUT_IMG_WIDTH</span> <span class="o">*</span> <span class="n">INPUT_IMG_HEIGHT</span><span class="p">);</span></code></pre></figure>
+
+<p>实际上，我们只需要把数据按照模型的输入的尺寸按顺序放入内存，再调用这个接口，就可以把各种数据放进网络。
+比如，R-CNN的roi输入是2维的：N x 5，N是ROI个数，5是指<code class="highlighter-rouge">(image_index, x1, y1, x2, y2)</code>，于是，
+对应的内存区域应该如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>|-------BOX-------|-------BOX-------|-------BOX-------| ...
+|&lt;------ 5 ------&gt;|&lt;------ 5 ------&gt;|&lt;------ 5 ------&gt;| ...
+</code></pre>
+</div>
+
 <h4 id="获取输出">获取输出</h4>
+<p>设置好输入后，需要调用<code class="highlighter-rouge">MXPredForward(pred_hnd)</code>来进行前向传播。通过<code class="highlighter-rouge">MXPredGetOutput</code>接口可以获取
+网络的输出：</p>
+
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">MXPredGetOutput</span><span class="p">(</span><span class="n">pred_hnd</span><span class="p">,</span> <span class="n">out_ind</span><span class="p">,</span> <span class="n">pOutput_data</span><span class="p">,</span> <span class="n">OUTPUT_SIZE</span><span class="p">);</span></code></pre></figure>
+
+<p>其中，<code class="highlighter-rouge">out_ind</code>是整数，即获取第几个输出，如果网络只有一个输出，它就是0；pOutput_data是一个指向
+<code class="highlighter-rouge">mx_float</code>类型数组的指针，大小由<code class="highlighter-rouge">OUTPUT_SIZE</code>确定。<code class="highlighter-rouge">pOutput_data</code>的内存排列方式和输入是
+一样的，即按照最右侧维度优先的方式排列。</p>
+
 <h4 id="编译链接">编译链接</h4>
+<p>借助CMake可以非常方便地完成编译连接。直接在CMakeLists.txt中加入MXNet的头文件路径和链接库名称和位置即可：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>link_directories(/path/to/mxnet/lib) # path where libmxnet.so can be found
+add_executable( my_program
+    main.cpp
+    ...
+)
+target_link_libraries( my_program
+    ${OPENCV_LIBS}
+    ...
+    mxnet                   # just 'mxnet', since the shared lib is named 'libmxnet.so'
+)
+target_include_directories( my_program
+    ./include
+    ...                     # other includes
+    /path/to/mxnet/include  # mxnet include
+)
+</code></pre>
+</div>
+<p>写完CMakeLists.txt后运行<code class="highlighter-rouge">cmake /path/to/CMakeLists.txt; make</code>即可。</p>
 
   </article>
 <!-- 多说评论框 start -->

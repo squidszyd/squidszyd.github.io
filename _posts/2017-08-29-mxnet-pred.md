@@ -61,8 +61,8 @@ class BufferFile {
 `GetBuffer()`方法可以获取读入的数据的长度和内容。
 
 ### Pred Handle:
-这个是与MXNet交互的界面，通过这个handle我们可以设置要输入到网络的数据，可以
-获取相应的输出。
+这个是与MXNet交互的界面，通过这个handle我们可以设置要输入到网络的数据，可以获取相应的输出。
+
 ####  Pred Handle的初始化，最核心的就是下面这个API：
 {% highlight c++ %}
 MXPredCreate(
@@ -75,7 +75,7 @@ MXPredCreate(
      input_keys,
      input_shape_indptr,
      input_shape_data,
-     &pred_hnd_);
+     &pred_hnd);
 {% endhighlight %}
 
 对这里的变量做一下说明：
@@ -112,8 +112,77 @@ const char** input_keys = input_key;
         4,  // data2的尺寸信息从inptu_shape_data的第4个位置开始, 到8结束: 10, 3, 224, 224
         8};
 {% endhighlight %}
-* `pred_hnd_`：MXNet预测handle，类型为`PredictorHandle`
+* `pred_hnd`：MXNet预测handle，类型为`PredictorHandle`
 
 #### 把图像放进网络
+假设我们的模型接收1 x 3 x 224 x 224的图像作为输入，假设现有一个待输入的`Mat`类型图像，如何把
+它放进网络里呢？MXNet接收的输入实际上一块连续的内存，大小由`input_shape_data`指定，所以我们就需要
+把`Mat`转换成内存中的一块区域，实际的存储顺序如下：
+```
+|--------B--------|--------G--------|--------R--------|
+|<---- W x H ---->|<---- W x H ---->|<---- W x H ---->|
+```
+即按通道顺序存储，每个通道内按照列优先的顺序存，于是可以实现一个如下所示的转换函数：
+{% highlight c++ %}
+// 假设内存空间已经预先分配到pData所指向的内存
+void cvtMat2MXData(const Mat& img, float* pData, float mean_r = 0.0f, float mean_g = 0.0f, float mean_b = 0.0f){
+    int w = img.cols, h = img.rows;
+    // 检查是否符合网络的输入要求
+    CHECK_EQ(w, INPUT_IMG_WIDTH);
+    CHECK_EQ(h, INPUT_IMG_HEIGHT);
+    int size = w * h;
+    float* ptr_im_b = pData, *ptr_im_g = pData + size;, *ptr_im_r = pData + size + size;
+    for(int i = 0; i < h; ++i){
+        auto ptr = img.ptr<uchar>(i);
+        for(int j = 0; j < w; ++j){
+            // 顺便进行减均值的操作
+            *ptr_im_b++ = static_cast<float>(*ptr++) - mean_b;
+            *ptr_im_g++ = static_cast<float>(*ptr++) - mean_g;
+            *ptr_im_r++ = static_cast<float>(*ptr++) - mean_r;
+        }
+    }
+}
+{% endhighlight %}
+经过上面的变换，通过下面这个API就可以把图像送进网络：
+{% highlight c++ %}
+MXPredSetInput(pred_hnd, "data", pData, 3 * INPUT_IMG_WIDTH * INPUT_IMG_HEIGHT);
+{% endhighlight %}
+实际上，我们只需要把数据按照模型的输入的尺寸按顺序放入内存，再调用这个接口，就可以把各种数据放进网络。
+比如，R-CNN的roi输入是2维的：N x 5，N是ROI个数，5是指`(image_index, x1, y1, x2, y2)`，于是，
+对应的内存区域应该如下：
+```
+|-------BOX-------|-------BOX-------|-------BOX-------| ...
+|<------ 5 ------>|<------ 5 ------>|<------ 5 ------>| ...
+```
+
 #### 获取输出
+设置好输入后，需要调用`MXPredForward(pred_hnd)`来进行前向传播。通过`MXPredGetOutput`接口可以获取
+网络的输出：
+{% highlight c++ %}
+MXPredGetOutput(pred_hnd, out_ind, pOutput_data, OUTPUT_SIZE);
+{% endhighlight %}
+其中，`out_ind`是整数，即获取第几个输出，如果网络只有一个输出，它就是0；pOutput_data是一个指向
+`mx_float`类型数组的指针，大小由`OUTPUT_SIZE`确定。`pOutput_data`的内存排列方式和输入是
+一样的，即按照最右侧维度优先的方式排列。
+
 #### 编译链接
+借助CMake可以非常方便地完成编译连接。直接在CMakeLists.txt中加入MXNet的头文件路径和链接库名称和位置即可：
+
+```
+link_directories(/path/to/mxnet/lib) # path where libmxnet.so can be found
+add_executable( my_program
+    main.cpp
+    ...
+)
+target_link_libraries( my_program
+    ${OPENCV_LIBS}
+    ...
+    mxnet                   # just 'mxnet', since the shared lib is named 'libmxnet.so'
+)
+target_include_directories( my_program
+    ./include
+    ...                     # other includes
+    /path/to/mxnet/include  # mxnet include
+)
+```
+写完CMakeLists.txt后运行`cmake /path/to/CMakeLists.txt; make`即可。
